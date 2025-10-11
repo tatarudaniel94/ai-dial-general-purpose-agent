@@ -1,6 +1,7 @@
 from typing import Any
 
 from aidial_sdk.chat_completion import Message
+from pydantic import StrictStr
 
 from task.tools.deployment.base import DeploymentTool
 from task.tools.models import ToolCallParams
@@ -15,8 +16,9 @@ class ImageGenerationTool(DeploymentTool):
             for attachment in msg.custom_content.attachments:
                 if attachment.type in ("image/png", "image/jpeg"):
                     tool_call_params.choice.append_content(f"\n\r![image]({attachment.url})\n\r")
-                    if not msg.content:
-                        msg.content = 'The image has been successfully generated according to request and shown to user!'
+
+            if not msg.content:
+                msg.content = StrictStr('The image has been successfully generated according to request and shown to user!')
 
         return msg
 
