@@ -28,7 +28,7 @@
    - Add to `models`:
      - Key is `gpt-4o` with such configurations:
          - displayName = `GPT 4o`
-         - endpoint = `http://adapter-dial:5000/openai/deployments/gpt-4o/chat/completion`
+         - endpoint = `http://adapter-dial:5000/openai/deployments/gpt-4o/chat/completions`
          - iconUrl = `http://localhost:3001/gpt4.svg`
          - type = `chat`
          - upstreams = array with dict of:
@@ -70,7 +70,7 @@
 1. Add to [DIAL core config](core/config.json) dall-e-3 model:
    - Key is `dall-e-3` with such configurations:
      - displayName = `DALL-E-3`
-     - endpoint = `http://adapter-dial:5000/openai/deployments/dall-e-3/chat/completion`
+     - endpoint = `http://adapter-dial:5000/openai/deployments/dall-e-3/chat/completions`
      - iconUrl = `http://localhost:3001/gpt3.svg`
      - type = `chat`
      - upstreams = array with dict of:
@@ -146,7 +146,7 @@ DIAL Platform provides users with Unified API to work with different models. Let
 1. Add to [DIAL core config](core/config.json) claude-sonnet-3-7:
     - Key is `claude-sonnet-3-7` with such configurations:
         - displayName = `Claude Sonnet 3.7`
-        - endpoint = `http://adapter-dial:5000/openai/deployments/claude-sonnet-3-7/chat/completion`
+        - endpoint = `http://adapter-dial:5000/openai/deployments/claude-sonnet-3-7/chat/completions`
         - iconUrl = `https://chat.lab.epam.com/themes/anthropic.svg`
         - type = `chat`
         - upstreams = array with dict of:
