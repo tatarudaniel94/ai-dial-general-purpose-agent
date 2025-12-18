@@ -20,51 +20,97 @@ class FileContentExtractionTool(BaseTool):
 
     @property
     def show_in_stage(self) -> bool:
-        # TODO: set as False since we will have custom variant of representation in Stage
-        raise NotImplementedError()
+        # Set as False since we will have custom variant of representation in Stage
+        return False
 
     @property
     def name(self) -> str:
-        # TODO: provide self-descriptive name
-        raise NotImplementedError()
+        return "file_content_extraction"
 
     @property
     def description(self) -> str:
-        # TODO: provide tool description that will help LLM to understand when to use this tools and cover 'tricky'
-        #  moments (not more 1024 chars)
-        raise NotImplementedError()
+        return (
+            "Extracts text content from files. Supported formats: PDF (text only), TXT, CSV (returns markdown table), HTML/HTM. "
+            "For large files (>10,000 characters), pagination is enabled. "
+            "Response includes page indicator at the end: '**Page #X. Total pages: Y**' if paginated. "
+            "Use page parameter to fetch subsequent pages. Always start with page=1."
+        )
 
     @property
     def parameters(self) -> dict[str, Any]:
-        # TODO: provide tool parameters JSON Schema:
-        #  - file_url is string, required
-        #  - page is integer, by default 1, description: "For large documents pagination is enabled. Each page consists of 10000 characters."
-        raise NotImplementedError()
+        return {
+            "type": "object",
+            "properties": {
+                "file_url": {
+                    "type": "string",
+                    "description": "The URL of the file to extract content from."
+                },
+                "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "For large documents pagination is enabled. Each page consists of 10000 characters."
+                }
+            },
+            "required": ["file_url"]
+        }
 
     async def _execute(self, tool_call_params: ToolCallParams) -> str | Message:
-        #TODO:
-        # 1. Load arguments with `json`
-        # 2. Get `file_url` from arguments
-        # 3. Get `page` from arguments (if none, set as 1 by default)
-        # 4. Get stage from `tool_call_params`
-        # 5. Append content to stage: "## Request arguments: \n"
-        # 6. Append content to stage: `f"**File URL**: {file_url}\n\r"`
-        # 7. If `page` more than 1 then append content to stage: `f"**Page**: {page}\n\r"`
-        # 8. Append content to stage: "## Response: \n"
-        # 9. Implement `task.utils.dial_file_conent_extractor`, create DialFileContentExtractor and call `extract_text`
-        #    method as `content`
-        # 10. If no `content` present then set it as "Error: File content not found."
-        # 11. If `content` len is more than 10_000 then we need to enable pagination:
-        #       - create variable `page_size` as 10_000
-        #       - calculate total pages, formula: (`content len` + `page_size` - 1) // `page_size`
-        #       - if `page` is less then 1 (potential hallucination from LLM) then set it as 1
-        #       - otherwise check if page > total pages (potential hallucination), it yes then set `content` as
-        #         `f"Error: Page {page} does not exist. Total pages: {total_pages}"`
-        #       - prepare `start_index`: `(page - 1) * page_size`
-        #       - prepare `end_index`: `start_index + page_size`
-        #       - get page content from `content` that will start with `start_index` and end with `end_index`
-        #       - set `content` as `f"{page_content}\n\n**Page #{page}. Total pages: {total_pages}**"` (It will show to
-        #         LLM that it is not full content and it is pageable)
-        # 12. Append content to stage: `f"```text\n\r{content}\n\r```\n\r"` (Will be shown in stage as markdown text)
-        # 13. Return `content`
-        raise NotImplementedError()
+        # 1. Load arguments
+        arguments = json.loads(tool_call_params.tool_call.function.arguments)
+        
+        # 2. Get file_url from arguments
+        file_url = arguments.get("file_url")
+        
+        # 3. Get page from arguments (default 1)
+        page = arguments.get("page", 1)
+        
+        # 4. Get stage from tool_call_params
+        stage = tool_call_params.stage
+        
+        # 5. Append content to stage: request header
+        stage.append_content("## Request arguments: \n")
+        
+        # 6. Append file URL to stage
+        stage.append_content(f"**File URL**: {file_url}\n\r")
+        
+        # 7. If page more than 1, show it in stage
+        if page > 1:
+            stage.append_content(f"**Page**: {page}\n\r")
+        
+        # 8. Append response header to stage
+        stage.append_content("## Response: \n")
+        
+        # 9. Create DialFileContentExtractor and extract text
+        extractor = DialFileContentExtractor(
+            endpoint=self.endpoint,
+            api_key=tool_call_params.api_key
+        )
+        content = extractor.extract_text(file_url)
+        
+        # 10. If no content present, set error message
+        if not content:
+            content = "Error: File content not found."
+        
+        # 11. Handle pagination for large content
+        if len(content) > 10_000:
+            page_size = 10_000
+            total_pages = (len(content) + page_size - 1) // page_size
+            
+            # Handle page < 1 (potential hallucination)
+            if page < 1:
+                page = 1
+            # Handle page > total_pages (potential hallucination)
+            elif page > total_pages:
+                content = f"Error: Page {page} does not exist. Total pages: {total_pages}"
+            else:
+                # Calculate page slice
+                start_index = (page - 1) * page_size
+                end_index = start_index + page_size
+                page_content = content[start_index:end_index]
+                content = f"{page_content}\n\n**Page #{page}. Total pages: {total_pages}**"
+        
+        # 12. Append content to stage as markdown text
+        stage.append_content(f"```text\n\r{content}\n\r```\n\r")
+        
+        # 13. Return content
+        return content
